@@ -124,4 +124,12 @@ main 브랜치: 항상 “동작하는 상태” 유지
 포트폴리오
 
 회고 정리
-에 활용합니다.
+에 활용합니다. 
+
+## How to Start
+
+1) Clone the repository  
+2) Install dependencies  
+3) Run simple training: python src/training/train.py  
+4) Notebook-based EDA: notebooks/EDA.ipynb  
+5) Submission 생성: python src/inference/make_submission.py
