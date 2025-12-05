@@ -1,6 +1,7 @@
 # AI-06_5team-Object-Detection
 Team-based oral medication object detection project (Kaggle Competition)
 # 🧪 HealthEat Pill Detection Project
+ㅇㅇ
 
 경구약제 이미지에서 **알약의 종류(클래스)와 위치(바운딩 박스)** 를 예측하는  
 객체 탐지(Object Detection) 팀 프로젝트입니다.
