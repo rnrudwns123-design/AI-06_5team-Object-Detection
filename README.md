@@ -142,3 +142,8 @@ main 브랜치: 항상 “동작하는 상태” 유지
 3) Run simple training: python src/training/train.py  
 4) Notebook-based EDA: notebooks/EDA.ipynb  
 5) Submission 생성: python src/inference/make_submission.py
+
+
+## 🚀 YOLOv8 실행 (1줄)
+pip install -r requirements.txt
+python src/training/train_yolov8.py
