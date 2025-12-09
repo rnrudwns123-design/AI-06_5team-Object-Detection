@@ -225,3 +225,15 @@ data/sample_submission/*
 
 logs/
 runs/
+
+
+
+.data/.DS_Store
+data/test_images/
+data/train_annotations/
+data/train_images/
+docs/.DS_Store
+notebooks/.DS_Store
+src/.DS_Store
+.DS_Store
+data/.DS_Store
