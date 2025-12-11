@@ -252,13 +252,17 @@ if mode == "[수정] 라벨링 (Modification)":
         
         # Batch Update Controls
         st.write("### 일괄 적용 (Batch Apply)")
-        c_sel, c_empty = st.columns([3, 1])
+        c_sel, c_btn = st.columns([3, 1], gap="small")
         with c_sel:
             target_class_key = st.selectbox(
                 "적용할 클래스 선택 (Select Class)", 
                 options=[""] + sorted_class_keys,
-                format_func=lambda x: class_display_map.get(x, "클래스 선택...") if x else "클래스 선택..."
+                format_func=lambda x: class_display_map.get(x, "클래스 선택...") if x else "클래스 선택...",
+                label_visibility="collapsed"
             )
+        with c_btn:
+            # Place button next to selectbox
+            apply_submitted = st.form_submit_button("선택 항목에 일괄 적용", type="primary", use_container_width=True)
         
         st.divider()
 
@@ -310,7 +314,7 @@ if mode == "[수정] 라벨링 (Modification)":
 
         # Submit Button (Applied to Form)
         st.markdown("<br>", unsafe_allow_html=True)
-        apply_submitted = st.form_submit_button("선택 항목에 일괄 적용 (Updates Selected Items)", type="primary")
+        # apply_submitted was moved up
 
     # --- Process Submission ---
     if apply_submitted:
@@ -363,13 +367,18 @@ elif mode == "[컨펌] 검수 (Confirmation)":
         # load_fixed_dict.clear() # Should update cache if needed, simplified for now
     
     # 2. Filter images that have valid labels
+    filter_unconfirmed = st.checkbox("미컨펌 항목만 보기 (Unconfirmed Only)", value=False)
+
     # We iterate over unique images in 'data'
     valid_images = []
     
     for filename, annots in data.items():
         # Check if ANY annot in this image has a label
         has_label = any(ann.get('label') is not None for ann in annots)
+        
         if has_label:
+            if filter_unconfirmed and filename in fixed_dict:
+                continue
             valid_images.append(filename)
 
     if not valid_images:
@@ -434,7 +443,7 @@ elif mode == "[컨펌] 검수 (Confirmation)":
                 fixed_dict[current_filename] = valid_annots_for_save
                 save_fixed_dict(fixed_dict)
                 st.toast(f"저장 완료: {current_filename}")
-                load_fixed_dict.clear() 
+                # load_fixed_dict.clear()  # Removed: Function is not cached, no clear method needed 
                 st.rerun()
 
         # Display Logic (Image)
