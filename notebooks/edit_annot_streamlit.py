@@ -346,7 +346,6 @@ elif mode == "[컨펌] 검수 (Confirmation)":
     # 1. Load FIXED_DICT to see what's already done (optional, but good for persistence)
     FIXED_DICT_PATH = os.path.join(DATA_DIR, "FIXED_DICT.json")
     
-    @st.cache_data
     def load_fixed_dict():
         if os.path.exists(FIXED_DICT_PATH):
             try:
@@ -484,7 +483,6 @@ elif mode == "[통계] 현황 (Statistics)":
     ERR_TXT_PATH = os.path.join(DATA_DIR, "err_image_paths.txt")
     FIXED_DICT_PATH = os.path.join(DATA_DIR, "FIXED_DICT.json")
 
-    @st.cache_data
     def load_stats_data_merged():
         # 1. Load FULL_DICT
         if not os.path.exists(FULL_DICT_PATH):
