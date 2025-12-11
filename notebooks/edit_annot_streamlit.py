@@ -203,7 +203,7 @@ class_display_map = {k: f"{classes_map[k].get('drug_N', '?')}" for k in sorted_c
 st.title("💊 전체 알약 라벨링 도구")
 
 # Mode Selection
-mode = st.radio("모드 선택 (Mode)", ["[수정] 라벨링 (Modification)", "[컨펌] 검수 (Confirmation)"], horizontal=True)
+mode = st.radio("모드 선택 (Mode)", ["[수정] 라벨링 (Modification)", "[컨펌] 검수 (Confirmation)", "[통계] 현황 (Statistics)"], horizontal=True)
 
 keys_to_show_in_sidebar = []
 
@@ -471,6 +471,139 @@ elif mode == "[컨펌] 검수 (Confirmation)":
                 st.error(f"Image load error: {e}")
         else:
             st.error(f"File not found: {img_path}")
+
+
+# -----------------------------------------------------------------------------
+# MODE 3: [통계] Statistics
+# -----------------------------------------------------------------------------
+elif mode == "[통계] 현황 (Statistics)":
+    st.write("### 📊 라벨링 현황 분석 (Statistics)")
+    st.caption("데이터 소스: FULL_DICT - Error Images + FIXED_DICT (Confirmed Updates)")
+
+    FULL_DICT_PATH = os.path.join(DATA_DIR, "FULL_DICT.json")
+    ERR_TXT_PATH = os.path.join(DATA_DIR, "err_image_paths.txt")
+    FIXED_DICT_PATH = os.path.join(DATA_DIR, "FIXED_DICT.json")
+
+    @st.cache_data
+    def load_stats_data_merged():
+        # 1. Load FULL_DICT
+        if not os.path.exists(FULL_DICT_PATH):
+            return {}
+        with open(FULL_DICT_PATH, 'r', encoding='utf-8') as f:
+            full_data = json.load(f)
+            
+        # 2. Exclude Error Images
+        err_paths = set()
+        if os.path.exists(ERR_TXT_PATH):
+            with open(ERR_TXT_PATH, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line: err_paths.add(line)
+        
+        valid_data = {k: v for k, v in full_data.items() if k not in err_paths}
+
+        # 3. Merge FIXED_DICT
+        if os.path.exists(FIXED_DICT_PATH):
+            try:
+                with open(FIXED_DICT_PATH, 'r', encoding='utf-8') as f:
+                    fixed_data = json.load(f)
+                    for k, v in fixed_data.items():
+                         # Update or Add (Fixed dict contains the 'truth' for these files)
+                        valid_data[k] = v
+            except:
+                pass
+        
+        return valid_data
+
+    stats_data = load_stats_data_merged()
+    
+    # Calculate Counts per Class
+    # 1. Reverse Map: drug_N -> class_key
+    drug_n_to_lbl = {}
+    for k, v in classes_map.items():
+        if 'drug_N' in v:
+            drug_n_to_lbl[v['drug_N']] = k
+
+    # 2. Count
+    class_counts = {k: 0 for k in classes_map.keys()}
+    total_annotations = 0
+    
+    for filename, annots in stats_data.items():
+        if not isinstance(annots, list): continue
+        
+        # Check type of first item to determine parsing strategy
+        if not annots: continue
+        first_item = annots[0]
+        
+        if isinstance(first_item, str):
+            # Format: FULL_DICT (Paths)
+            # Path e.g.: ".../K-016548/..."
+            # We assume the directory name K-XXXXXX indicates the class
+            for path in annots:
+                # Simple extraction strategy: find 'K-XXXXXX' part
+                # parts = path.split('/')
+                # But safer to just Regex if imports allowed, but let's try strict split first if we know structure
+                # Or just iterate parts
+                parts = path.split('/')
+                drug_code = None
+                for p in parts:
+                    if p.startswith('K-') and len(p) == 8 and p[2:].isdigit():
+                        drug_code = p[2:] # "016548"
+                        break
+                
+                if drug_code and drug_code in drug_n_to_lbl:
+                    lbl = drug_n_to_lbl[drug_code]
+                    class_counts[lbl] += 1
+                    total_annotations += 1
+                    
+        elif isinstance(first_item, dict):
+            # Format: FIXED_DICT (Objects)
+            for ann in annots:
+                lbl = ann.get('label')
+                if lbl and lbl in class_counts:
+                    class_counts[lbl] += 1
+                    total_annotations += 1
+
+    # Prepare DataFrame
+    import pandas as pd
+    
+    stats_list = []
+    for key in sorted_class_keys:
+        info = classes_map[key]
+        dn = info.get('drug_N', 'Unknown')
+        count = class_counts.get(key, 0)
+        stats_list.append({
+            "Class Key": key,
+            "Drug Code (drug_N)": dn,
+            "Count": count
+        })
+        
+    df_stats = pd.DataFrame(stats_list)
+    
+    # Display Metrics
+    c_m1, c_m2, c_m3 = st.columns(3)
+    c_m1.metric("총 이미지 수 (Images)", len(stats_data))
+    c_m2.metric("총 어노테이션 수 (BBoxes)", total_annotations)
+    c_m3.metric("클래스 수 (Classes)", len(classes_map))
+    
+    st.divider()
+    
+    st.write("#### 클래스별 라벨 수 (Counts per Class)")
+    st.dataframe(
+        df_stats,
+        column_config={
+            "Count": st.column_config.ProgressColumn(
+                "Count",
+                help="Number of annotations",
+                format="%d",
+                min_value=0,
+                max_value=max([d['Count'] for d in stats_list]) if stats_list else 100,
+            ),
+        },
+        use_container_width=True,
+        height=600
+    )
+
 
 # Render Sidebar with determined keys
 render_sidebar(keys_to_show_in_sidebar)
