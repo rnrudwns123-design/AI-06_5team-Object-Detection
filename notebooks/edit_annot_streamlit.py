@@ -90,6 +90,100 @@ def img_to_base64(img):
 
 # --- Main App ---
 
+# --- Sidebar Function ---
+def render_sidebar(keys_to_show):
+    # Sidebar: Reference Grid
+    st.sidebar.title("📚 참고 이미지 (Reference)")
+    
+    # CSS for Logic: Checkbox + Label = Toggle
+    st.sidebar.markdown("""
+    <style>
+    .ref-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3px;
+    }
+    .ref-item {
+        position: relative;
+        border: 1px solid #eee;
+        background: white;
+        border-radius: 4px;
+    }
+    /* Hidden Checkbox */
+    .toggle-chk {
+        display: none;
+    }
+    /* Label acts as the click target */
+    .toggle-label {
+        cursor: pointer;
+        display: block;
+    }
+    .ref-img {
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: contain;
+        background: #f0f0f0;
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        display: block;
+        transition: transform 0.2s;
+    }
+    .ref-caption {
+        font-size: 9px;
+        text-align: center;
+        color: #333;
+        padding: 1px;
+        background: #f8f8f8;
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis;
+    }
+
+    /* Checked State -> Enlarge */
+    .toggle-chk:checked + .toggle-label {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(5); /* Giant Zoom at Center */
+        z-index: 99999;
+        box-shadow: 0 0 100px rgba(0,0,0,0.5);
+        background: white;
+        border-radius: 2px;
+        padding: 2px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.sidebar.caption("💡 이미지를 클릭하면 확대/축소됩니다.")
+
+    if not keys_to_show:
+        st.sidebar.info("표시할 참고 이미지가 없습니다.")
+        return
+
+    html_content = '<div class="ref-grid">'
+    count = 0 
+    for key in keys_to_show:
+        if key not in classes_map: continue
+        
+        info = classes_map[key]
+        dn = info.get('drug_N', '')
+        crop = get_crop(info['file_name'], info['bbox'])
+        
+        if crop:
+            crop.thumbnail((100, 100))
+            b64 = img_to_base64(crop)
+            
+            # Unique ID for checkbox
+            chk_id = f"chk_{key}"
+            
+            html_content += f"""<div class="ref-item"><input type="checkbox" id="{chk_id}" class="toggle-chk"><label for="{chk_id}" class="toggle-label" title="{dn}"><img src="data:image/png;base64,{b64}" class="ref-img"><div class="ref-caption">{dn}</div></label></div>"""
+        count += 1
+    html_content += '</div>'
+    st.sidebar.markdown(html_content, unsafe_allow_html=True)
+    st.sidebar.caption(f"총 {count}개 클래스 표시 중")
+
+# --- Main App ---
+
 st.set_page_config(layout="wide", page_title="알약 라벨링 도구")
 
 if 'data' not in st.session_state:
@@ -106,102 +200,20 @@ sorted_class_keys = sorted(
 
 class_display_map = {k: f"{classes_map[k].get('drug_N', '?')}" for k in sorted_class_keys}
 
-# --- Sidebar: Reference Grid (CSS Toggle Hack) ---
-st.sidebar.title("📚 참고 이미지 (Reference)")
-
-# CSS for Logic: Checkbox + Label = Toggle
-st.sidebar.markdown("""
-<style>
-.ref-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 3px;
-}
-.ref-item {
-    position: relative;
-    border: 1px solid #eee;
-    background: white;
-    border-radius: 4px;
-}
-/* Hidden Checkbox */
-.toggle-chk {
-    display: none;
-}
-/* Label acts as the click target */
-.toggle-label {
-    cursor: pointer;
-    display: block;
-}
-.ref-img {
-    width: 100%;
-    aspect-ratio: 1/1;
-    object-fit: contain;
-    background: #f0f0f0;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    display: block;
-    transition: transform 0.2s;
-}
-.ref-caption {
-    font-size: 9px;
-    text-align: center;
-    color: #333;
-    padding: 1px;
-    background: #f8f8f8;
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis;
-}
-
-/* Checked State -> Enlarge */
-.toggle-chk:checked + .toggle-label {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(5); /* Giant Zoom at Center */
-    z-index: 99999;
-    box-shadow: 0 0 100px rgba(0,0,0,0.5);
-    background: white;
-    border-radius: 2px;
-    padding: 2px;
-}
-/* Overlay to darken background when zoomed? Hard with just pure CSS in this structure.
-   Instead, we just make the zoomed item huge. */
-</style>
-""", unsafe_allow_html=True)
-
-st.sidebar.caption("💡 이미지를 클릭하면 확대/축소됩니다.")
-
-html_content = '<div class="ref-grid">'
-count = 0 
-for key in sorted_class_keys:
-    info = classes_map[key]
-    dn = info.get('drug_N', '')
-    crop = get_crop(info['file_name'], info['bbox'])
-    
-    if crop:
-        crop.thumbnail((100, 100))
-        b64 = img_to_base64(crop)
-        
-        # Unique ID for checkbox
-        chk_id = f"chk_{key}"
-        
-        html_content += f"""<div class="ref-item"><input type="checkbox" id="{chk_id}" class="toggle-chk"><label for="{chk_id}" class="toggle-label" title="{dn}"><img src="data:image/png;base64,{b64}" class="ref-img"><div class="ref-caption">{dn}</div></label></div>"""
-    count += 1
-html_content += '</div>'
-st.sidebar.markdown(html_content, unsafe_allow_html=True)
-st.sidebar.caption(f"총 {count}개 클래스")
-
-
-# --- Main Content ---
 st.title("💊 전체 알약 라벨링 도구")
 
-tab_mod, tab_confirm = st.tabs(["[수정] 라벨링 (Modification)", "[컨펌] 검수 (Confirmation)"])
+# Mode Selection
+mode = st.radio("모드 선택 (Mode)", ["[수정] 라벨링 (Modification)", "[컨펌] 검수 (Confirmation)"], horizontal=True)
+
+keys_to_show_in_sidebar = []
 
 # -----------------------------------------------------------------------------
-# TAB 1: [수정] Modification
+# MODE 1: [수정] Modification
 # -----------------------------------------------------------------------------
-with tab_mod:
+if mode == "[수정] 라벨링 (Modification)":
+    # Sidebar: Show ALL sorted keys
+    keys_to_show_in_sidebar = sorted_class_keys
+    
     # Global Settings for Mod Tab
     c_gs1, c_gs2 = st.columns(2)
     page_size = c_gs1.number_input("페이지당 항목 수 (Items per Page)", min_value=10, max_value=200, value=50, key="mod_page_size")
@@ -326,9 +338,9 @@ with tab_mod:
 
 
 # -----------------------------------------------------------------------------
-# TAB 2: [컨펌] Confirmation
+# MODE 2: [컨펌] Confirmation
 # -----------------------------------------------------------------------------
-with tab_confirm:
+elif mode == "[컨펌] 검수 (Confirmation)":
     st.write("### ✅ 라벨링 최종 검수 (Confirmation)")
 
     # 1. Load FIXED_DICT to see what's already done (optional, but good for persistence)
@@ -357,27 +369,20 @@ with tab_confirm:
     
     for filename, annots in data.items():
         # Check if ANY annot in this image has a label
-        # Also filter out ones that don't allow drawing (invalid bbox?)
-        # User constraint: "Only show bboxes if label is not null"
-        
-        # We need at least one labeled annotation to "Confirm" an image? 
-        # Or just show all images and let user confirm? 
-        # Requirement: "Composed of results labeled in [Modification] stage"
-        
         has_label = any(ann.get('label') is not None for ann in annots)
         if has_label:
             valid_images.append(filename)
 
     if not valid_images:
         st.info("검수할 이미지가 없습니다. [수정] 탭에서 라벨을 먼저 지정해주세요.")
+        keys_to_show_in_sidebar = [] # Nothing to show
     else:
         # Pagination for Images
         if "conf_current_page" not in st.session_state:
             st.session_state.conf_current_page = 1
             
         total_conf_items = len(valid_images)
-        conf_page_size = 1 # View one image at a time usually better for confirmation, or grid? 
-        # User said: "Can see output with bboxes... on AN image" -> implies Single Image View mode might be best.
+        conf_page_size = 1 
         
         c_cp1, c_cp2, c_cp3 = st.columns([1, 2, 1])
         if c_cp1.button("◀ 이전 이미지", key="conf_prev"):
@@ -390,15 +395,50 @@ with tab_confirm:
         
         c_cp2.write(f"**Image {st.session_state.conf_current_page} / {total_conf_items}**")
         c_cp2.caption(f"{current_filename}")
+        
+        # --- Context Determination for Sidebar ---
+        # Get labels from the current image
+        current_annots = data[current_filename]
+        labels_in_current_img = set()
+        
+        # Pre-calculate valid annotations for saving/drawing logic
+        valid_annots_for_save = []
+        for ann in current_annots:
+            lbl = ann.get('label')
+            if lbl:
+                labels_in_current_img.add(lbl)
+                valid_annots_for_save.append(ann)
+                
+        # Update sidebar keys
+        keys_to_show_in_sidebar = list(labels_in_current_img)
+        keys_to_show_in_sidebar.sort(key=lambda k: classes_map.get(k, {}).get('drug_N', '999999'))
 
-        # Show Confirmation Status
+        # Check Confirmation Status
         is_confirmed = current_filename in fixed_dict
-        if is_confirmed:
-            st.success("✅ 이미 컨펌된 이미지입니다. (Saved in FIXED_DICT)")
-        else:
-            st.warning("⚠️ 아직 컨펌되지 않았습니다.")
 
-        # Display Logic
+        # Layout: Status and Action Button (Side-by-Side, Above Image)
+        st.write("---")
+        c_status, c_action = st.columns([3, 1], gap="small")
+        
+        with c_status:
+            if is_confirmed:
+                st.success("✅ 이미 컨펌된 이미지입니다. (Saved in FIXED_DICT)")
+            else:
+                st.warning("⚠️ 아직 컨펌되지 않았습니다.")
+
+        with c_action:
+            # Confirm Button
+            # Logic: If checked/clicked, update FIXED_DICT with valid annotations
+            conf_btn_label = "Update Confirmation" if is_confirmed else "Confirm & Save"
+            # Use a unique key to prevent state conflicts
+            if st.button(conf_btn_label, key=f"btn_conf_{current_filename}", type="primary" if not is_confirmed else "secondary", use_container_width=True):
+                fixed_dict[current_filename] = valid_annots_for_save
+                save_fixed_dict(fixed_dict)
+                st.toast(f"저장 완료: {current_filename}")
+                load_fixed_dict.clear() 
+                st.rerun()
+
+        # Display Logic (Image)
         img_path = os.path.join(IMAGE_DIR, current_filename)
         if os.path.exists(img_path):
             try:
@@ -406,46 +446,31 @@ with tab_confirm:
                 base_img = Image.open(img_path).convert("RGB")
                 draw = ImageDraw.Draw(base_img)
                 
-                # Draw BBoxes
-                annots = data[current_filename]
-                
-                # Collect valid annotations for saving
-                valid_annots_for_save = []
-
-                for ann in annots:
+                # Draw BBoxes (Only for valid ones)
+                for ann in valid_annots_for_save:
                     lbl = ann.get('label')
-                    if lbl: # Only draw if label is present (User Req)
-                        bbox = ann['bbox']
-                        x, y, w, h = bbox
-                        dn = ann.get('drug_N', lbl)
+                    bbox = ann['bbox']
+                    x, y, w, h = bbox
+                    dn = ann.get('drug_N', lbl)
+                    
+                    # Draw Rectangle
+                    draw.rectangle([x, y, x+w, y+h], outline="red", width=3)
+                    
+                    # Draw Text Background & Text
+                    try:
+                        font = ImageFont.truetype("Arial", 20)
+                    except:
+                        font = ImageFont.load_default()
                         
-                        # Draw Rectangle
-                        draw.rectangle([x, y, x+w, y+h], outline="red", width=3)
-                        
-                        # Draw Text Background & Text
-                        try:
-                            font = ImageFont.truetype("Arial", 20)
-                        except:
-                            font = ImageFont.load_default()
-                            
-                        # Improve Text Drawing
-                        draw.text((x, y-20 if y>20 else y+h), str(dn), fill="red", font=font)
-                        
-                        valid_annots_for_save.append(ann)
+                    # Improve Text Drawing
+                    draw.text((x, y-20 if y>20 else y+h), str(dn), fill="red", font=font)
                 
                 st.image(base_img, use_container_width=True)
-                
-                # Confirm Button
-                # Logic: If checked/clicked, update FIXED_DICT with valid annotations
-                conf_btn_label = "Update Confirmation" if is_confirmed else "Confirm & Save"
-                if st.button(conf_btn_label, key=f"btn_conf_{current_filename}", type="primary" if not is_confirmed else "secondary"):
-                    fixed_dict[current_filename] = valid_annots_for_save
-                    save_fixed_dict(fixed_dict)
-                    st.toast(f"저장 완료: {current_filename}")
-                    load_fixed_dict.clear() # Clear cache to reflect change instantly if we re-read
-                    st.rerun()
 
             except Exception as e:
                 st.error(f"Image load error: {e}")
         else:
             st.error(f"File not found: {img_path}")
+
+# Render Sidebar with determined keys
+render_sidebar(keys_to_show_in_sidebar)
