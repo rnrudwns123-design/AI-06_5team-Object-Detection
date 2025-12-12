@@ -42,6 +42,7 @@ AI-06_5team-Object-Detection/
     ├── report/               # 최종 보고서, md/pdf
     ├── slides/               # 발표 자료
     └── logs/                 # 실험 로그/결과 정리
+```
 
 Team & Roles
 
