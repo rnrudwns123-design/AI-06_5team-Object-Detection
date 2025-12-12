@@ -147,3 +147,5 @@ main 브랜치: 항상 “동작하는 상태” 유지
 ## 🚀 YOLOv8 실행 (1줄)
 pip install -r requirements.txt
 python src/training/train_yolov8.py
+
+데이터는 구글 드라이브 링크에서 받아서 notebooks/data/에 풀어놓으세요
