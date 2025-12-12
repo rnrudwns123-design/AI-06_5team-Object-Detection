@@ -1,24 +1,59 @@
-# 학습 데이터셋 설정
 
+# 기본 설정
+# 1. 경로 설정
 import json
 import os
-from datetime import datetime
+
 
 ROOT_DIR = os.path.dirname(os.getcwd())
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 IMAGE_DIR = os.path.join(DATA_DIR, "train_images")
 ANNOT_DIR = os.path.join(DATA_DIR, "train_annotations")
 
+
 full_dict_path = os.path.join(DATA_DIR, "FULL_DICT.json")
 err_txt_path = os.path.join(DATA_DIR, "err_image_paths.txt")
 fixed_dict_path = os.path.join(DATA_DIR, "FIXED_DICT.json")
 partial_dict_path = os.path.join(DATA_DIR, "PARTIAL_DICT.json")
+no_dict_path = os.path.join(DATA_DIR, "NO_DICT.json")
 
 
 
-import numpy as np
+# 기본 설정
+# 2. 구글 드라이브에서 FIXED_DICT, err_image_paths.txt 최신화
 
+import gdown
+from datetime import datetime
+
+err_txt_file_id = "11ZSWLtsCERqCnn3LW8hLkNoabzXMTuF9"
+FIXED_DICT_file_id = "12lXHbkQNowGtk5AxtJZ3638qVLhSwxHh"
+
+gdown.download(id=err_txt_file_id, output=err_txt_path, quiet=False)
+gdown.download(id=FIXED_DICT_file_id, output=fixed_dict_path, quiet=False)
+
+err_modification_time = os.path.getmtime(err_txt_path)
+err_modification_time = datetime.fromtimestamp(err_modification_time)
+
+fixed_modification_time = os.path.getmtime(fixed_dict_path)
+fixed_modification_time = datetime.fromtimestamp(fixed_modification_time)
+
+print("[업데이트 완료]")
+print(f"· err_image_paths 업데이트 날짜: {err_modification_time}")
+print(f"· FIXED_DICT 업데이트 날짜: {fixed_modification_time}")
+
+
+
+# 함수 구현
+
+def get_modi_time(path):
+    modi_time = os.path.getmtime(path)
+    modi_time = datetime.fromtimestamp(modi_time)
+    return modi_time
+
+
+# 지니 계수(불평등도) 계산
 def calculate_gini(dictionary: dict) -> float:
+    import numpy as np
 
     pill_num_count_dict = dict()
 
@@ -37,8 +72,6 @@ def calculate_gini(dictionary: dict) -> float:
         return 0.0
 
 
-    # 1. 지니 계수 (Gini Coefficient) 계산
-    # (0에 가까울수록 좋음)
     sorted_counts = np.sort(counts)
     n = len(counts)
     cum_counts = np.cumsum(sorted_counts)
@@ -52,15 +85,9 @@ def calculate_gini(dictionary: dict) -> float:
 def load_full_dict() -> dict:
     with open(full_dict_path, "r", encoding="utf-8") as f:
         FULL_DICT = json.load(f)
-
-    modification_time = os.path.getmtime(full_dict_path)
-    modification_time = datetime.fromtimestamp(modification_time)
-
-    print(f"[FULL_DICT]")
-    print(f"· {len(FULL_DICT)}개")
-    print(f"· 업데이트 날짜: {modification_time}")
-
+    
     return FULL_DICT
+
 
 
 # PARTIAL_DICT 불러오기
@@ -68,14 +95,15 @@ def load_partial_dict() -> dict:
     with open(partial_dict_path, "r", encoding="utf-8") as f:
         PARTIAL_DICT = json.load(f)
 
-    modification_time = os.path.getmtime(partial_dict_path)
-    modification_time = datetime.fromtimestamp(modification_time)
-
-    print(f"[PARTIAL_DICT]")
-    print(f"· {len(PARTIAL_DICT)}개")
-    print(f"· 업데이트 날짜: {modification_time}")
-
     return PARTIAL_DICT
+
+
+# NO_DICT 불러오기
+def load_no_dict() -> dict:
+    with open(no_dict_path, "r", encoding="utf-8") as f:
+        NO_DICT = json.load(f)
+
+    return NO_DICT
 
 
 # err_image_paths 불러오기
@@ -84,14 +112,8 @@ def load_err_image_paths() -> list:
         with open(err_txt_path, "r", encoding="utf-8") as f:
             err_image_paths = f.read().split()
 
-        modification_time = os.path.getmtime(err_txt_path)
-        modification_time = datetime.fromtimestamp(modification_time)
-
-        print(f"[err_image_paths]")
-        print(f"· {len(err_image_paths)}개")
-        print(f"· 업데이트 날짜: {modification_time}")
-
         return err_image_paths
+    
     except:
         pass
 
@@ -101,13 +123,6 @@ def load_fixed_dict() -> dict:
     try:
         with open(fixed_dict_path, "r", encoding="utf-8") as f:
             FIXED_DICT = json.load(f)
-
-        modification_time = os.path.getmtime(fixed_dict_path)
-        modification_time = datetime.fromtimestamp(modification_time)
-
-        print(f"[FIXED_DICT]")
-        print(f"· {len(FIXED_DICT)}개")
-        print(f"· 업데이트 날짜: {modification_time}")
 
         return FIXED_DICT
     except:
@@ -122,6 +137,7 @@ def load_final_dict() -> dict:
     # FULL_DICT 더하기
     try: 
         FULL_DICT = load_full_dict()
+
     except: 
         pass
 
@@ -182,9 +198,13 @@ def load_final_dict() -> dict:
     except:
         pass
 
-    print(f"\n<<FINAL_DICT 불러오기 완료>>")
+    print(f"<<FINAL_DICT 불러오기 완료>>")
     print(f"· 총 {len(FINAL_DICT)}개")
     print(f"· 지니 계수(불평등도): {calculate_gini(FINAL_DICT)}")
+    print(f"")
+    print(f"· FULL_DICT: {len(FULL_DICT)}개")
+    print(f"· err_image_path.txt: {len(err_image_paths)}개")
+    print(f"· FIXED_DICT.json: {len(FIXED_DICT)}개")
 
     return FINAL_DICT
 
@@ -379,11 +399,6 @@ def yolo_to_csv():
     ])
     print(sub.head())
     sub.to_csv(os.path.join(ROOT_DIR, "submission_test_fixed_with_sampler_no_aug.csv"), index=False)
-
-
-
-
-
 
 
 # def common_to_personal(data):
