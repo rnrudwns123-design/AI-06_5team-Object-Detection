@@ -9,11 +9,8 @@ import data_management as dm
 
 # --- Settings ---
 ROOT_DIR = dm.ROOT_DIR
-if os.getcwd().endswith("100_DL_ObjectDetection"):
-    ROOT_DIR = os.getcwd()
-
-DATA_DIR = os.path.join(ROOT_DIR, "data")
-IMAGE_DIR = os.path.join(DATA_DIR, "train_images")
+DATA_DIR = dm.DATA_DIR
+IMAGE_DIR = dm.IMAGE_DIR
 
 RAW_JSON_PATH = os.path.join(DATA_DIR, "_annotations_processed.coco.json")
 FIXED_JSON_PATH = os.path.join(DATA_DIR, "_annotations_fixed.coco.json")
