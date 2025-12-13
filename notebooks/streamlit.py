@@ -15,7 +15,7 @@ if os.getcwd().endswith("100_DL_ObjectDetection"):
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 IMAGE_DIR = os.path.join(DATA_DIR, "train_images")
 
-RAW_JSON_PATH = os.path.join(ROOT_DIR, "_annotations.coco.json")
+RAW_JSON_PATH = os.path.join(ROOT_DIR, "_annotations_processed.coco.json")
 FIXED_JSON_PATH = os.path.join(ROOT_DIR, "_annotations_fixed.coco.json")
 UNIQUE_CLASSES_PATH = os.path.join(DATA_DIR, "unique_classes.json")
 
