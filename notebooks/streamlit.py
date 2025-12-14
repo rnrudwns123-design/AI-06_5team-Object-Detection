@@ -214,7 +214,7 @@ if mode == "[수정] 라벨링 (Modification)":
     
     # Global Settings for Mod Tab
     c_gs1, c_gs2 = st.columns(2)
-    page_size = c_gs1.number_input("페이지당 항목 수 (Items per Page)", min_value=10, max_value=200, value=50, key="mod_page_size")
+    page_size = c_gs1.number_input("페이지당 항목 수 (Items per Page)", min_value=10, max_value=200, value=200, key="mod_page_size")
     filter_unlabeled = c_gs2.checkbox("라벨 없는 항목만 보기 (Unlabeled Only)", value=False, key="mod_filter")
 
     all_items = []
@@ -371,10 +371,11 @@ elif mode == "[컨펌] 검수 (Confirmation)":
     valid_images = []
     
     for filename, annots in data.items():
-        # Check if ANY annot in this image has a label
-        has_label = any(ann.get('label') is not None for ann in annots)
+        # Check if ALL annots in this image have a label (and there is at least one annot)
+        if not annots: continue
+        is_fully_labeled = all(ann.get('label') is not None for ann in annots)
         
-        if has_label:
+        if is_fully_labeled:
             if filter_unconfirmed and filename in fixed_dict:
                 continue
             valid_images.append(filename)
@@ -522,6 +523,13 @@ elif mode == "[통계] 현황 (Statistics)":
 
     stats_data = load_stats_data_merged()
     
+    # [Mod] Overlay current session changes (to include in-progress/unsaved labels)
+    if 'data' in st.session_state:
+        for filename, annots in st.session_state.data.items():
+            # Only update if the image is valid (exists in the base filtered set)
+            if filename in stats_data:
+                stats_data[filename] = annots
+    
     # Calculate Counts per Class
     # 1. Reverse Map: drug_N -> class_key
     drug_n_to_lbl = {}
@@ -530,44 +538,59 @@ elif mode == "[통계] 현황 (Statistics)":
             drug_n_to_lbl[v['drug_N']] = k
 
     # 2. Count
-    class_counts = {k: 0 for k in classes_map.keys()}
+    # Load FIXED_DICT keys for status check
+    fixed_keys = set()
+    if os.path.exists(FIXED_DICT_PATH):
+        try:
+            with open(FIXED_DICT_PATH, 'r', encoding='utf-8') as f:
+                fixed_keys = set(json.load(f).keys())
+        except:
+            pass
+
+    # 2. Count
+    confirmed_counts = {k: 0 for k in classes_map.keys()}
+    modified_counts = {k: 0 for k in classes_map.keys()}
     total_annotations = 0
     
     for filename, annots in stats_data.items():
         if not isinstance(annots, list): continue
-        
-        # Check type of first item to determine parsing strategy
         if not annots: continue
+        
+        # Determine status
+        is_confirmed = filename in fixed_keys
+        
         first_item = annots[0]
         
+        # ... (Same parsing logic, just updating counts based on is_confirmed)
+        # Simplified parsing logic for consistency
+        current_labels = []
+        
         if isinstance(first_item, str):
-            # Format: FULL_DICT (Paths)
-            # Path e.g.: ".../K-016548/..."
-            # We assume the directory name K-XXXXXX indicates the class
-            for path in annots:
-                # Simple extraction strategy: find 'K-XXXXXX' part
-                # parts = path.split('/')
-                # But safer to just Regex if imports allowed, but let's try strict split first if we know structure
-                # Or just iterate parts
+            # FULL_DICT format (list of paths)
+             for path in annots:
                 parts = path.split('/')
                 drug_code = None
                 for p in parts:
                     if p.startswith('K-') and len(p) == 8 and p[2:].isdigit():
-                        drug_code = p[2:] # "016548"
+                        drug_code = p[2:]
                         break
-                
                 if drug_code and drug_code in drug_n_to_lbl:
-                    lbl = drug_n_to_lbl[drug_code]
-                    class_counts[lbl] += 1
-                    total_annotations += 1
-                    
+                    current_labels.append(drug_n_to_lbl[drug_code])
         elif isinstance(first_item, dict):
-            # Format: FIXED_DICT (Objects)
+            # Standard format (list of dicts)
             for ann in annots:
                 lbl = ann.get('label')
-                if lbl and lbl in class_counts:
-                    class_counts[lbl] += 1
-                    total_annotations += 1
+                if lbl:
+                    current_labels.append(lbl)
+
+        # Update Counts
+        for lbl in current_labels:
+            if lbl in classes_map:
+                if is_confirmed:
+                    confirmed_counts[lbl] += 1
+                else:
+                    modified_counts[lbl] += 1
+                total_annotations += 1
 
     # Prepare DataFrame
     import pandas as pd
@@ -576,11 +599,16 @@ elif mode == "[통계] 현황 (Statistics)":
     for key in sorted_class_keys:
         info = classes_map[key]
         dn = info.get('drug_N', 'Unknown')
-        count = class_counts.get(key, 0)
+        c_cnt = confirmed_counts.get(key, 0)
+        m_cnt = modified_counts.get(key, 0)
+        total = c_cnt + m_cnt
+        
         stats_list.append({
             "Class Key": key,
-            "Drug Code (drug_N)": dn,
-            "Count": count
+            "Drug Code": dn,
+            "Confirmed": c_cnt,
+            "Modified": m_cnt,
+            "Total": total
         })
         
     df_stats = pd.DataFrame(stats_list)
@@ -597,12 +625,14 @@ elif mode == "[통계] 현황 (Statistics)":
     st.dataframe(
         df_stats,
         column_config={
-            "Count": st.column_config.ProgressColumn(
-                "Count",
-                help="Number of annotations",
+            "Confirmed": st.column_config.NumberColumn("✅ Confirmed", format="%d"),
+            "Modified": st.column_config.NumberColumn("✏️ Modified", format="%d"),
+            "Total": st.column_config.ProgressColumn(
+                "Total",
+                help="Total annotations",
                 format="%d",
                 min_value=0,
-                max_value=max([d['Count'] for d in stats_list]) if stats_list else 100,
+                max_value=max([d['Total'] for d in stats_list]) if stats_list else 100,
             ),
         },
         use_container_width=True,
