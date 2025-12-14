@@ -161,20 +161,26 @@ def render_sidebar(keys_to_show):
     html_content = '<div class="ref-grid">'
     count = 0 
     for key in keys_to_show:
-        if key not in classes_map: continue
-        
-        info = classes_map[key]
-        dn = info.get('drug_N', '')
-        crop = get_crop(info['file_name'], info['bbox'])
-        
-        if crop:
-            crop.thumbnail((100, 100))
-            b64 = img_to_base64(crop)
+        if key in classes_map:
+            # Standard Class
+            info = classes_map[key]
+            dn = info.get('drug_N', '')
+            crop = get_crop(info['file_name'], info['bbox'])
             
-            # Unique ID for checkbox
-            chk_id = f"chk_{key}"
+            if crop:
+                crop.thumbnail((100, 100))
+                b64 = img_to_base64(crop)
+                
+                # Unique ID for checkbox
+                chk_id = f"chk_{key}"
+                
+                html_content += f"""<div class="ref-item"><input type="checkbox" id="{chk_id}" class="toggle-chk"><label for="{chk_id}" class="toggle-label" title="{dn}"><img src="data:image/png;base64,{b64}" class="ref-img"><div class="ref-caption">{dn}</div></label></div>"""
+        else:
+            # Custom Label (No Image ref)
+            chk_id = f"chk_custom_{key}"
+            # Placeholder/Text Card
+            html_content += f"""<div class="ref-item" style="display:flex;align-items:center;justify-content:center;aspect-ratio:1/1;background:#f0f0f0;"><input type="checkbox" id="{chk_id}" class="toggle-chk"><label for="{chk_id}" class="toggle-label" title="{key}" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><div class="ref-caption" style="font-size:12px;font-weight:bold;color:#555;">{key}</div></label></div>"""
             
-            html_content += f"""<div class="ref-item"><input type="checkbox" id="{chk_id}" class="toggle-chk"><label for="{chk_id}" class="toggle-label" title="{dn}"><img src="data:image/png;base64,{b64}" class="ref-img"><div class="ref-caption">{dn}</div></label></div>"""
         count += 1
     html_content += '</div>'
     st.sidebar.markdown(html_content, unsafe_allow_html=True)
@@ -209,8 +215,19 @@ keys_to_show_in_sidebar = []
 # MODE 1: [수정] Modification
 # -----------------------------------------------------------------------------
 if mode == "[수정] 라벨링 (Modification)":
-    # Sidebar: Show ALL sorted keys
-    keys_to_show_in_sidebar = sorted_class_keys
+    # 0. Find Custom Labels in current data (where label is None but drug_N is set)
+    custom_labels = set()
+    for annots in data.values():
+        for ann in annots:
+             # Logic: If label matches a known class, it's standard. If label is None/Unknown but drug_N exists, it's custom.
+             # Strict check: label is None and drug_N is not Empty
+             if ann.get('label') is None and ann.get('drug_N'):
+                 custom_labels.add(ann['drug_N'])
+    
+    sorted_custom_labels = sorted(list(custom_labels))
+
+    # Sidebar: Show ALL sorted keys + Custom keys
+    keys_to_show_in_sidebar = sorted_class_keys + sorted_custom_labels
     
     # Global Settings for Mod Tab
     c_gs1, c_gs2 = st.columns(2)
@@ -220,7 +237,8 @@ if mode == "[수정] 라벨링 (Modification)":
     all_items = []
     for filename, annots in data.items():
         for idx, ann in enumerate(annots):
-            if filter_unlabeled and ann.get('label') is not None:
+            # [Mod] Filter based on drug_N (User Request)
+            if filter_unlabeled and ann.get('drug_N'):
                 continue
             all_items.append({
                 "filename": filename,
@@ -250,17 +268,24 @@ if mode == "[수정] 라벨링 (Modification)":
         
         # Batch Update Controls
         st.write("### 일괄 적용 (Batch Apply)")
-        c_sel, c_btn = st.columns([3, 1], gap="small")
+        c_sel, c_inp, c_btn = st.columns([2, 2, 1], gap="small")
         with c_sel:
+            # Combine Options: Standard Keys + Custom Labels
+            # We want to show formatted names for standard keys, and just text for custom
+            combined_options = [""] + sorted_class_keys + sorted_custom_labels
+            
             target_class_key = st.selectbox(
-                "적용할 클래스 선택 (Select Class)", 
-                options=[""] + sorted_class_keys,
-                format_func=lambda x: class_display_map.get(x, "클래스 선택...") if x else "클래스 선택...",
+                "기존 목록 선택 (Select List)", 
+                options=combined_options,
+                format_func=lambda x: class_display_map.get(x, x if x else "목록 선택..."),
                 label_visibility="collapsed"
             )
+        with c_inp:
+            manual_input = st.text_input("직접 입력 (New Custom)", placeholder="직접 입력 (Enter Text)", label_visibility="collapsed")
+            
         with c_btn:
             # Place button next to selectbox
-            apply_submitted = st.form_submit_button("선택 항목에 일괄 적용", type="primary", use_container_width=True)
+            apply_submitted = st.form_submit_button("적용", type="primary", use_container_width=True)
         
         st.divider()
 
@@ -316,19 +341,35 @@ if mode == "[수정] 라벨링 (Modification)":
 
     # --- Process Submission ---
     if apply_submitted:
-        if not target_class_key:
-            st.warning("먼저 적용할 클래스를 선택해주세요.")
+        final_label = None
+        final_drug_n = None
+        
+        # Priority 1: Manual Input
+        if manual_input and manual_input.strip():
+            final_label = None # Custom labels have no 'label' key
+            final_drug_n = manual_input.strip()
+        # Priority 2: Selected from Dropdown
+        elif target_class_key:
+            if target_class_key in classes_map:
+                # It is a Standard Class
+                final_label = target_class_key
+                final_drug_n = classes_map[target_class_key].get('drug_N', 'Unknown')
+            else:
+                # It is a Custom Label (reused)
+                final_label = None
+                final_drug_n = target_class_key
+        
+        if not final_drug_n:
+             st.warning("적용할 라벨 또는 텍스트를 입력해주세요.")
         else:
-            target_info = classes_map.get(target_class_key, {})
-            target_drug_n = target_info.get("drug_N", "Unknown")
             
             updated_count = 0
             
             # Iterate over keys created in the form
             for key, item in selection_keys:
                 if st.session_state.get(key):
-                    item['ann']['label'] = target_class_key
-                    item['ann']['drug_N'] = target_drug_n
+                    item['ann']['label'] = final_label
+                    item['ann']['drug_N'] = final_drug_n
                     updated_count += 1
             
             if updated_count > 0:
