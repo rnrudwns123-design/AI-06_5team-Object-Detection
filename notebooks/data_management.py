@@ -37,7 +37,7 @@ err_modification_time = datetime.fromtimestamp(err_modification_time)
 fixed_modification_time = os.path.getmtime(fixed_dict_path)
 fixed_modification_time = datetime.fromtimestamp(fixed_modification_time)
 
-print("[업데이트 완료]")
+print("\n[업데이트 완료]")
 print(f"· err_image_paths 업데이트 날짜: {err_modification_time}")
 print(f"· FIXED_DICT 업데이트 날짜: {fixed_modification_time}")
 
