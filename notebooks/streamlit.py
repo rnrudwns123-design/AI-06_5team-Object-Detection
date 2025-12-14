@@ -214,7 +214,7 @@ if mode == "[수정] 라벨링 (Modification)":
     
     # Global Settings for Mod Tab
     c_gs1, c_gs2 = st.columns(2)
-    page_size = c_gs1.number_input("페이지당 항목 수 (Items per Page)", min_value=10, max_value=200, value=200, key="mod_page_size")
+    page_size = c_gs1.number_input("페이지당 항목 수 (Items per Page)", min_value=10, max_value=1500, value=1500, key="mod_page_size")
     filter_unlabeled = c_gs2.checkbox("라벨 없는 항목만 보기 (Unlabeled Only)", value=False, key="mod_filter")
 
     all_items = []
@@ -526,9 +526,8 @@ elif mode == "[통계] 현황 (Statistics)":
     # [Mod] Overlay current session changes (to include in-progress/unsaved labels)
     if 'data' in st.session_state:
         for filename, annots in st.session_state.data.items():
-            # Only update if the image is valid (exists in the base filtered set)
-            if filename in stats_data:
-                stats_data[filename] = annots
+            # Merge all session data to reflect current state
+            stats_data[filename] = annots
     
     # Calculate Counts per Class
     # 1. Reverse Map: drug_N -> class_key
