@@ -3,13 +3,14 @@
 # 1. 경로 설정
 import json
 import os
+import torchvision
+import matplotlib.pyplot as plt
 
 
 ROOT_DIR = os.path.dirname(os.getcwd())
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 IMAGE_DIR = os.path.join(DATA_DIR, "train_images")
 ANNOT_DIR = os.path.join(DATA_DIR, "train_annotations")
-
 
 full_dict_path = os.path.join(DATA_DIR, "FULL_DICT.json")
 err_txt_path = os.path.join(DATA_DIR, "err_image_paths.txt")
@@ -19,36 +20,44 @@ no_dict_path = os.path.join(DATA_DIR, "NO_DICT.json")
 
 
 
-# 기본 설정
-# 2. 구글 드라이브에서 FIXED_DICT, err_image_paths.txt 최신화
+# # 기본 설정
+# # 2. 구글 드라이브에서 FIXED_DICT, err_image_paths.txt 최신화
 
-import gdown
-from datetime import datetime
+# import gdown
+# from datetime import datetime
 
-err_txt_file_id = "11ZSWLtsCERqCnn3LW8hLkNoabzXMTuF9"
-FIXED_DICT_file_id = "12lXHbkQNowGtk5AxtJZ3638qVLhSwxHh"
+# err_txt_file_id = "11ZSWLtsCERqCnn3LW8hLkNoabzXMTuF9"
+# FIXED_DICT_file_id = "12lXHbkQNowGtk5AxtJZ3638qVLhSwxHh"
 
-gdown.download(id=err_txt_file_id, output=err_txt_path, quiet=False)
-gdown.download(id=FIXED_DICT_file_id, output=fixed_dict_path, quiet=False)
+# gdown.download(id=err_txt_file_id, output=err_txt_path, quiet=False)
+# gdown.download(id=FIXED_DICT_file_id, output=fixed_dict_path, quiet=False)
 
-err_modification_time = os.path.getmtime(err_txt_path)
-err_modification_time = datetime.fromtimestamp(err_modification_time)
+# err_modification_time = os.path.getmtime(err_txt_path)
+# err_modification_time = datetime.fromtimestamp(err_modification_time)
 
-fixed_modification_time = os.path.getmtime(fixed_dict_path)
-fixed_modification_time = datetime.fromtimestamp(fixed_modification_time)
+# fixed_modification_time = os.path.getmtime(fixed_dict_path)
+# fixed_modification_time = datetime.fromtimestamp(fixed_modification_time)
 
-print("\n[업데이트 완료]")
-print(f"· err_image_paths 업데이트 날짜: {err_modification_time}")
-print(f"· FIXED_DICT 업데이트 날짜: {fixed_modification_time}")
+# print("\n[업데이트 완료]")
+# print(f"· err_image_paths 업데이트 날짜: {err_modification_time}")
+# print(f"· FIXED_DICT 업데이트 날짜: {fixed_modification_time}")
 
 
 
 # 함수 구현
 
-def get_modi_time(path):
-    modi_time = os.path.getmtime(path)
-    modi_time = datetime.fromtimestamp(modi_time)
-    return modi_time
+def print_image(image_name):
+    image_path = os.path.join(IMAGE_DIR, image_name)
+    a = torchvision.io.read_image(image_path).permute(1,2,0)
+    plt.imshow(a)
+    plt.title(image_name)
+    plt.show()
+
+
+# def get_modi_time(path):
+#     modi_time = os.path.getmtime(path)
+#     modi_time = datetime.fromtimestamp(modi_time)
+#     return modi_time
 
 
 # 지니 계수(불평등도) 계산
@@ -134,77 +143,29 @@ def load_final_dict() -> dict:
 
     FINAL_DICT = {}
 
-    # FULL_DICT 더하기
-    try: 
-        FULL_DICT = load_full_dict()
-
-    except: 
-        pass
-
-    for key, value in FULL_DICT.items():
-        image_path = os.path.join(IMAGE_DIR, key)
-
-        tmp_list = []
-
-        for json_path in value:
-            tmp_list.append(os.path.join(ANNOT_DIR, json_path))
-            
-        FINAL_DICT[image_path] = tmp_list
-        
-
-    # err_image_paths 빼기
-    try:
-        err_image_paths = load_err_image_paths()
-
-        for err in err_image_paths:
-            err_path = os.path.join(IMAGE_DIR, err)
-            del FINAL_DICT[err_path]
-        
-    except:
-        pass
-
-
-    # FINAL_DICT 서식 수정
-    for image_path, annot_paths in FINAL_DICT.items():
-
-        tmp_list = []
-
-        for path in annot_paths:
-            with open(path, "r", encoding="utf-8") as f:
-                json_data = json.load(f)
-
-            xywh_bbox = json_data["annotations"][0]["bbox"]
-
-            tmp_list.append({"bbox": xywh_bbox,
-                            "label": json_data["categories"][0]["id"]})
-            
-        FINAL_DICT[image_path] = tmp_list
-
-
-    # FIXED_DICT 더하기
     try:
         FIXED_DICT = load_fixed_dict()
 
-        for key, value in FIXED_DICT.items():
+        for image_name, annot_list in FIXED_DICT.items():
+            for annot in annot_list:
+                del annot["drug_N"]
 
-            tmp_list = []
-
-            for di in value:
-                del di["drug_N"]
-
-            FINAL_DICT[os.path.join(IMAGE_DIR, key)] = value
+            FINAL_DICT[os.path.join(IMAGE_DIR, image_name)] = annot_list
         
-    
+        
+        unique_labels = set()
+        for annots in FINAL_DICT.values():
+            for annot in annots:
+                unique_labels.add(annot["label"])
+
     except:
         pass
 
     print(f"<<FINAL_DICT 불러오기 완료>>")
-    print(f"· 총 {len(FINAL_DICT)}개")
-    print(f"· 지니 계수(불평등도): {calculate_gini(FINAL_DICT)}")
-    print(f"")
-    print(f"· FULL_DICT: {len(FULL_DICT)}개")
-    print(f"· err_image_path.txt: {len(err_image_paths)}개")
-    print(f"· FIXED_DICT.json: {len(FIXED_DICT)}개")
+    print(f"· 이미지: {len(FINAL_DICT)}개")
+    print(f"· 어노테이션: {sum([len(a) for a in FINAL_DICT.values()])}개")
+    print(f"· 클래스: {len(unique_labels)}개")
+    print(f"· 지니 계수(불균형도): {calculate_gini(FINAL_DICT)} (낮을수록 균형)")
 
     return FINAL_DICT
 
