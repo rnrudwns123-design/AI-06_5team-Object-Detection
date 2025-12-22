@@ -217,7 +217,7 @@ data/processed/*
 data/annotations/*
 data/sample_submission/*
 
-.ipynb_checkpoints/
+.ipynb_checkpoints/*
 
 *.pth
 *.pt
@@ -225,3 +225,29 @@ data/sample_submission/*
 
 logs/
 runs/
+
+
+
+.data/.DS_Store
+data/test_images/*
+data/train_annotations/*
+data/ai_hub_annotations/*
+data/ai_hub_classes/*
+data/train_images/*
+docs/.DS_Store
+notebooks/.DS_Store
+src/.DS_Store
+.DS_Store
+data/.DS_Store
+data/train_annotations_fixed/*
+docs/설명 자료.pptx
+submission_test_fixed copy.csv
+submission_test_fixed_with_sampler_no_aug.csv
+submission_test_fixed.csv
+.gitignore
+docs/클래스별 이미지 모음/
+notebooks/data/yolo_dataset/images/train/*
+notebooks/data/yolo_dataset/images/val/*
+notebooks/data/yolo_dataset/labels/train/*
+notebooks/data/yolo_dataset/labels/val/*
+
