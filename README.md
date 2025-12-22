@@ -143,6 +143,9 @@ main 브랜치: 항상 “동작하는 상태” 유지
 4) Notebook-based EDA: notebooks/EDA.ipynb  
 5) Submission 생성: python src/inference/make_submission.py
 
+보고서 파일
+https://docs.google.com/presentation/d/1CN7oudZRTSJk7G5YmpdtSRpLAZsQAQsq/edit?usp=drive_link&ouid=107484568184180051581&rtpof=true&sd=true
+
 
 ## 🚀 YOLOv8 실행 (1줄)
 pip install -r requirements.txt
