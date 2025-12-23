@@ -217,7 +217,7 @@ data/processed/*
 data/annotations/*
 data/sample_submission/*
 
-.ipynb_checkpoints/
+.ipynb_checkpoints/*
 
 *.pth
 *.pt
@@ -225,4 +225,3 @@ data/sample_submission/*
 
 logs/
 runs/
-data/
